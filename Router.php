@@ -1,33 +1,127 @@
 <?php
-namespace router;
+namespace Router;
 
+/**
+ * MVC Routing class.
+ * This class performs an action depending on the HTTP Request.
+ * 
+ * @author  Marcelo Pereira <marcelo.pereira@grupofolha.com.br>
+ * @since  2014-12-11
+ */
 class Router
 {
-	
-	protected $serverProtocol; //http,https
-	protected $serverProtocolVersion; //1.1
-	protected $serverName; //localhost, marcelovcpereira.com
-	protected $pathInfo;
-	protected $queryString;
-	protected $serverPort; //80, 443
-	protected $requestUrl;
-	protected $requestUri;
-	protected $requestMethod;
-	protected $routes;
-	protected $isInitialized = false;
+	/**
+	 * Request protocol.
+	 * 
+	 * @var string
+	 * @example http
+	 * @example https
+	 * 
+	 */
+	protected $serverProtocol;
 
+	/**
+	 * Version of the HTTP protocol
+	 * @var string
+	 * @example 1.1
+	 */
+	protected $serverProtocolVersion;
+
+	/**
+	 * Hostname
+	 * 
+	 * @var string
+	 * @example localhost
+	 * @example google.com
+	 */
+	protected $serverName; //localhost, marcelovcpereira.com
+
+	/**
+	 * The path that indicates the correct route.
+	 * This is the part of the url that comes after the script name and
+	 * is used to match the defined routes.
+	 * 
+	 * @var string
+	 * @example /user/2
+	 */
+	protected $pathInfo;
+
+	/**
+	 * The query string in the request
+	 * 
+	 * @var string
+	 * @example var=Val&var2=val2
+	 */
+	protected $queryString;
+
+	/**
+	 * The port of host that the request was sent to
+	 * 
+	 * @var string
+	 * @example 80
+	 * @example 443
+	 */
+	protected $serverPort;
+
+	/**
+	 * The HTTP method of the request
+	 * 
+	 * @var string
+	 * @example GET
+	 * @example POST
+	 */
+	protected $requestMethod;
+	
+	/**
+	 * Full URL containing protocol,hostname, port, script name,
+	 * path info and query string.
+	 * 
+	 * @var string
+	 * @example http://domain.com/user/10
+	 */
+	protected $requestUrl;
+
+	/**
+	 * URL part containing the script name, path info and query string
+	 * 
+	 * @var string
+	 * @example /public/index.php/user/100
+	 */
+	protected $requestUri;
+
+	/**
+	 * Array of routes to match the request against
+	 * 
+	 * @var array
+	 */
+	protected $routes;
+
+
+	/**
+	 * Default constructor
+	 */
 	public function __construct()
 	{
 		$this->initialize();
 	}
 
+	/**
+	 * Initialized the router extracting the info from the
+	 * HTTP request.
+	 * 
+	 * @return void
+	 */
 	public function initialize()
 	{
 		$this->getRequestUrl();
 		$this->initRoutes();
-		$this->isInitialized = true;
 	}
 
+	/**
+	 * Initializes and empty array of routes
+	 * 
+	 * @return void
+	 */
 	public function initRoutes()
 	{
 		$this->routes = array(
@@ -38,16 +132,30 @@ class Router
 		);
 	}
 
+	/**
+	 * Adds a HTTP GET route.
+	 * 
+	 * @param  string $pattern  Pattern of this route.
+	 * @param  string|closure $function Closure function to be called when the route matches,
+	 * a string containing the name of the function to be called or a class@method combination to
+	 * execute a controller method.
+	 * 
+	 * @return void
+	 * @example $router->get('/users',function(){ return Repository::findAll('User'); });
+	 * @example $router->get('/users', 'search_all_users');
+	 * @example $router->get('/users','\Controllers\UserController@findAll');
+	 */
 	public function get($pattern,$function)
 	{
-		if (!$this->isInitialized) {
-			$this->initialize();
-		}
-
 		$route = array($pattern, $function);
 		$this->routes["GET"][] = $route;
 	}
 
+	/**
+	 * Parses the request and executes the matched Route.
+	 * 
+	 * @return void
+	 */
 	public function parseRoute()
 	{
 		$matchedRoute = null;
@@ -87,6 +195,12 @@ class Router
 		}
 	}
 
+	/**
+	 * Returns the request method
+	 * 
+	 * @return string Http method
+	 * @example GET
+	 */
 	public function getRequestMethod()
 	{
 		if (!isset($this->requestMethod)) {
@@ -96,6 +210,12 @@ class Router
 		return $this->requestMethod;
 	}
 
+	/**
+	 * Returns the path info
+	 * 
+	 * @return string Path info
+	 * @example /users/new
+	 */
 	public function getPathInfo()
 	{
 		if (!isset($this->pathInfo)) {			
@@ -105,6 +225,12 @@ class Router
 		return $this->pathInfo;
 	}
 
+	/**
+	 * Returns the query string of the request
+	 * 
+	 * @return string The query string
+	 * @example ?userId=20&page=2
+	 */
 	public function getQueryString()
 	{
 		if (!isset($this->queryString)) {
@@ -114,6 +240,12 @@ class Router
 		return $this->queryString;
 	}
 
+	/**
+	 * Returns the path to the script.
+	 * 
+	 * @return string Script path
+	 * @example path/index.php
+	 */
 	public function getScriptName()
 	{
 		if (!isset($this->scriptName)) {			
@@ -123,6 +255,12 @@ class Router
 		return $this->scriptName;
 	}
 
+	/**
+	 * The URI part of the request
+	 * 
+	 * @return string
+	 * @example /path/to/index.php/users/new
+	 */
 	public function getRequestUri()
 	{
 		if (!isset($this->requestUri)) {
@@ -135,6 +273,12 @@ class Router
 		return $this->requestUri;
 	}
 
+	/**
+	 * Full URL
+	 * 
+	 * @return string
+	 * @example http://localhost/projetos/worker/1
+	 */
 	public function getRequestUrl()
 	{
 		if (!isset($this->requestUrl)) {
@@ -149,6 +293,12 @@ class Router
 		return $this->requestUrl;
 	}
 
+	/**
+	 * Returns the port used by the request
+	 * 
+	 * @return string Request port
+	 * @example 80
+	 */
 	public function getServerPort()
 	{
 		if(!isset($this->serverPort)) {
