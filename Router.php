@@ -161,11 +161,32 @@ class Router
         $matchedRoute = null;
         foreach ($this->routes[$this->getRequestMethod()] as $route) {
             list($pattern,$target) = $route;
-            if (preg_match("/^" . str_replace("/", "\\/", $pattern) . "$/", $this->getPathInfo(), $matches)) {
+            $pattern = str_replace("/", "\\/", strtolower($pattern));
+            //Obtain matches against any "variable" between curly brackets, besides slash (/) and
+            //curly brackets ({}) to prevent matching folders
+            preg_match_all("/{([^\/\{\}]*)}/", $pattern, $matches);
+            if ($matches) {
+                list($tokens,$ids) = $matches;
+                foreach ($tokens as $index => $token) {
+                    $pattern = str_replace($token, "(?<" . $ids[$index] . ">[0-9a-zA-Z_]+)", $pattern);
+                }
+                print htmlentities($pattern) . "<br>";
+            }
+
+            if (preg_match("/^$pattern$/", strtolower($this->getPathInfo()), $matches)) {
                 /**
                 * Found the route!
                 */
                 $matchedRoute = $route;
+
+                array_shift($matches);
+                $realVars = array();
+                foreach ($matches as $key => $value) {
+                    if (!is_numeric($key)) {
+                        $realVars[$key] = $value;
+                    }
+                }
+
                 if (is_string($target) && function_exists($target)) {
                     call_user_func($target);
                 } elseif (is_callable($target)) {
