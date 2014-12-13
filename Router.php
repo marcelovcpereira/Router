@@ -71,7 +71,7 @@ class Router
      * @example POST
      */
     protected $requestMethod;
-    
+
     /**
      * Full URL containing protocol,hostname, port, script name,
      * path info and query string.
@@ -95,6 +95,8 @@ class Router
      * @var array
      */
     protected $routes;
+
+    const METHOD_DELIMITER = "@";
 
 
     /**
@@ -170,7 +172,6 @@ class Router
                 foreach ($tokens as $index => $token) {
                     $pattern = str_replace($token, "(?<" . $ids[$index] . ">[0-9a-zA-Z_]+)", $pattern);
                 }
-                print htmlentities($pattern) . "<br>";
             }
 
             if (preg_match("/^$pattern$/", strtolower($this->getPathInfo()), $matches)) {
@@ -182,22 +183,21 @@ class Router
                 array_shift($matches);
                 $realVars = array();
                 foreach ($matches as $key => $value) {
-                    if (!is_numeric($key)) {
+                    if (is_numeric($key)) {
                         $realVars[$key] = $value;
                     }
                 }
-
                 if (is_string($target) && function_exists($target)) {
-                    call_user_func($target);
+                    call_user_func_array($target, $realVars);
                 } elseif (is_callable($target)) {
-                    $target();
+                    call_user_func_array($target, $realVars);
                 } elseif (is_string($target)) {
-                    $isMethod = strpos($target, "@");
+                    $isMethod = strpos($target, static::METHOD_DELIMITER);
                     if ($isMethod !== false) {
-                        list($class,$method) = explode("@", $target);
+                        list($class,$method) = explode(static::METHOD_DELIMITER, $target);
                         if (class_exists($class) && method_exists($class, $method)) {
                             $var = new $class;
-                            $var->$method();
+                            call_user_func_array(array($var, $method), $realVars);
                         } else {
                             throw new \Exception("Undefined class or method: $class@$method");
                         }
