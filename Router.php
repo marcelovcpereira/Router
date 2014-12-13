@@ -90,13 +90,55 @@ class Router
     protected $requestUri;
 
     /**
+     * Array of rules for each parameter in the route
+     * @var array
+     * @example array( "id" => "numeric" , "name" => "letters" )
+     */
+    protected $rules;
+
+    /**
      * Array of routes to match the request against
      *
      * @var array
      */
     protected $routes;
 
+    /**
+     * The delimiter used to separate the class name from the method name in
+     * the route definition.
+     *
+     * @example "\Controllers\HomeController@displayHome"
+     */
     const METHOD_DELIMITER = "@";
+
+    /**
+     * Regex rules constants
+     */
+    const PATTERN_ALFANUMERIC = "[0-9a-zA-Z]";
+    const PATTERN_ALFANUMERIC_UNDERSCORE = "[0-9a-zA-Z_]";
+    const PATTERN_ALFANUMERIC_FULL = "[0-9a-zA-Z_\-\+]";
+    const PATTERN_NUMERIC = "[0-9]";
+    const PATTERN_LETTERS = "[a-zA-Z]";
+
+    /**
+     * HTTP methods constants
+     */
+    const HTTP_GET = "GET";
+    const HTTP_POST = "POST";
+    const HTTP_PUT = "PUT";
+    const HTTP_DELETE = "DELETE";
+
+    /**
+     * Array of HTTP methods
+     *
+     * @var array
+     */
+    protected $httpMethods = array(
+        self::HTTP_GET,
+        self::HTTP_POST,
+        self::HTTP_PUT,
+        self::HTTP_DELETE
+    );
 
 
     /**
@@ -117,6 +159,7 @@ class Router
     {
         $this->getRequestUrl();
         $this->initRoutes();
+        $this->initRules();
     }
 
     /**
@@ -126,12 +169,21 @@ class Router
      */
     public function initRoutes()
     {
-        $this->routes = array(
-         "GET" => array(),
-         "POST" => array(),
-         "PUT" => array(),
-         "DELETE" => array()
-        );
+        foreach ($this->httpMethods as $method) {
+            $this->routes[$method] = array();
+        }
+    }
+
+    /**
+     * Initializes and empty array of rules
+     *
+     * @return void
+     */
+    public function initRules()
+    {
+        foreach ($this->httpMethods as $method) {
+            $this->rules[$method] = array();
+        }
     }
 
     /**
@@ -147,10 +199,18 @@ class Router
      * @example $router->get('/users', 'search_all_users');
      * @example $router->get('/users','\Controllers\UserController@findAll');
      */
-    public function get($pattern, $function)
+    public function get($pattern, $function, $rules = array())
     {
         $route = array($pattern, $function);
-        $this->routes["GET"][] = $route;
+        $this->routes[self::HTTP_GET][] = $route;
+
+        if (count($rules)) {
+            if (!isset($this->rules[self::HTTP_GET][$pattern])) {
+                $this->rules[self::HTTP_GET][$pattern] = $rules;
+            } else {
+                throw new \Exception("Route already defined: $pattern");
+            }
+        }
     }
 
     /**
@@ -161,8 +221,10 @@ class Router
     public function parseRoute()
     {
         $matchedRoute = null;
-        foreach ($this->routes[$this->getRequestMethod()] as $route) {
+        $method= $this->getRequestMethod();
+        foreach ($this->routes[$method] as $route) {
             list($pattern,$target) = $route;
+            $originalPattern = $pattern;
             $pattern = str_replace("/", "\\/", strtolower($pattern));
             //Obtain matches against any "variable" between curly brackets, besides slash (/) and
             //curly brackets ({}) to prevent matching folders
@@ -170,20 +232,29 @@ class Router
             if ($matches) {
                 list($tokens,$ids) = $matches;
                 foreach ($tokens as $index => $token) {
-                    $pattern = str_replace($token, "(?<" . $ids[$index] . ">[0-9a-zA-Z_]+)", $pattern);
+                    $hasRules = isset($this->rules[$method][$originalPattern][$ids[$index]]);
+                    if ($hasRules) {
+                        $rule = $this->translateRule($this->rules[$method][$originalPattern][$ids[$index]]);
+                        var_dump($rule);
+                    } else {
+                        //If there are no rules, set it to an alfanumeric parameter
+                        $rule = static::PATTERN_ALFANUMERIC_UNDERSCORE;
+                        var_dump($rule);
+                    }
+                    $pattern = str_replace($token, "(?<" . $ids[$index] . ">$rule+)", $pattern);
                 }
             }
-
+            print "pattern: $pattern , " .$this->getPathInfo() . "<bR>";
             if (preg_match("/^$pattern$/", strtolower($this->getPathInfo()), $matches)) {
                 /**
                 * Found the route!
                 */
                 $matchedRoute = $route;
-
                 array_shift($matches);
                 $realVars = array();
+
                 foreach ($matches as $key => $value) {
-                    if (!is_numeric($key)) {
+                    if (!is_int($key)) {
                         $realVars[$key] = $value;
                     }
                 }
@@ -206,6 +277,7 @@ class Router
                         throw new \Exception("Bad Route format: not closure, not function and not instance@method.");
                     }
                 }
+                $this->finalize();
             }
         }
         //If no route was found...
@@ -214,31 +286,91 @@ class Router
         }
     }
 
+    /**
+     * Finalizes the router after the execution of the
+     * correct route.
+     *
+     * @return void
+     */
+    public function finalize()
+    {
+        exit();
+    }
+
+    /**
+     * Returns the REGEX for a defined rule.
+     *
+     * @param  string $rule Name of the rule
+     * @return string       Regex of the rule
+     */
+    public function translateRule($rule)
+    {
+        switch ($rule) {
+            case "numeric":
+                return static::PATTERN_NUMERIC;
+                break;
+            case "letters":
+                return static::PATTERN_LETTERS;
+                break;
+            case "alfanumeric":
+                return static::PATTERN_ALFANUMERIC;
+                break;
+            case "alfanumeric_full":
+                return static::PATTERN_ALFANUMERIC_FULL;
+                break;
+            default:
+                return static::PATTERN_ALFANUMERIC_UNDERSCORE;
+                break;
+        }
+    }
+
+    /**
+     * Fix the order of arguments based on definition of method/function.
+     * Returns the array $params reordered to match $callable argument definition names.
+     * @param  mixed $callable The function/method which definition should be matched
+     * @param  array $params   List of parameter in a random order
+     * @return array           Parameters reordered to match function defined names
+     */
     public function fixParamOrder($callable, $params)
     {
         $fixedParams = array();
         if (is_array($callable) && count($callable) == 2) {
             try {
                 $reflex = new \ReflectionMethod($callable[0], $callable[1]);
-                $functionParams = $reflex->getParameters();
-                foreach ($functionParams as $param) {
-                    $fixedParams[] = $params[$param->name];
-                }
             } catch (\ReflectionException $e) {
                 throw new \Exception(sprintf("Class/Method does not exits (%s)", $callable[0]."\\".$callable[1]));
             }
         } else {
             try {
                 $reflex = new \ReflectionFunction($callable);
-                $functionParams = $reflex->getParameters();
-                foreach ($functionParams as $param) {
-                    $fixedParams[] = $params[$param->name];
-                }
             } catch (\ReflectionException $e) {
                 throw new \Exception("Function $callable does not exists");
             }
         }
+        $functionParams = $reflex->getParameters();
+        foreach ($functionParams as $param) {
+            if (isset($params[$param->name])) {
+                $fixedParams[] = $params[$param->name];
+            } else {
+                throw new \Exception("Parameter Definition doesn't match route label. Param:".$param->name . " , Route labels: ".$this->printRouteLabels($params));
+            }
+        }
         return $fixedParams;
+    }
+
+    /**
+     * Prints a string containing the keys of an array
+     * @param  array $routeArgs Array to be printed
+     * @return string Stringification of an array
+     */
+    public function printRouteLabels($routeArgs)
+    {
+        $return = "[";
+        foreach ($routeArgs as $label => $value) {
+            $return .= "$label,";
+        }
+        $return = rtrim($return, ",");
+        return "$return]";
     }
 
     /**
