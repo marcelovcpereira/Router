@@ -183,36 +183,62 @@ class Router
                 array_shift($matches);
                 $realVars = array();
                 foreach ($matches as $key => $value) {
-                    if (is_numeric($key)) {
+                    if (!is_numeric($key)) {
                         $realVars[$key] = $value;
                     }
                 }
-                if (is_string($target) && function_exists($target)) {
-                    call_user_func_array($target, $realVars);
-                } elseif (is_callable($target)) {
-                    call_user_func_array($target, $realVars);
+                if ((is_string($target) && function_exists($target)) ||
+                    is_callable($target)) {
+                    $fixedParams = $this->fixParamOrder($target, $realVars);
+                    call_user_func_array($target, $fixedParams);
                 } elseif (is_string($target)) {
                     $isMethod = strpos($target, static::METHOD_DELIMITER);
                     if ($isMethod !== false) {
                         list($class,$method) = explode(static::METHOD_DELIMITER, $target);
                         if (class_exists($class) && method_exists($class, $method)) {
                             $var = new $class;
-                            call_user_func_array(array($var, $method), $realVars);
+                            $fixedParams = $this->fixParamOrder(array($var, $method), $realVars);
+                            call_user_func_array(array($var, $method), $fixedParams);
                         } else {
                             throw new \Exception("Undefined class or method: $class@$method");
                         }
                     } else {
-                        throw new \Exception("Bad Route format: not callable, not function and not controller@method.");
+                        throw new \Exception("Bad Route format: not closure, not function and not instance@method.");
                     }
                 }
             }
         }
         //If no route was found...
         if (is_null($matchedRoute)) {
-            header('HTTP/1.0 404 Not Found');
-            print "Route not found!";
-            exit();
+            throw new \Exception("Route not found exception.");
         }
+    }
+
+    public function fixParamOrder($callable, $params)
+    {
+        $fixedParams = array();
+        if (is_array($callable) && count($callable) == 2) {
+            try {
+                $reflex = new \ReflectionMethod($callable[0], $callable[1]);
+                $functionParams = $reflex->getParameters();
+                foreach ($functionParams as $param) {
+                    $fixedParams[] = $params[$param->name];
+                }
+            } catch (\ReflectionException $e) {
+                throw new \Exception(sprintf("Class/Method does not exits (%s)", $callable[0]."\\".$callable[1]));
+            }
+        } else {
+            try {
+                $reflex = new \ReflectionFunction($callable);
+                $functionParams = $reflex->getParameters();
+                foreach ($functionParams as $param) {
+                    $fixedParams[] = $params[$param->name];
+                }
+            } catch (\ReflectionException $e) {
+                throw new \Exception("Function $callable does not exists");
+            }
+        }
+        return $fixedParams;
     }
 
     /**
