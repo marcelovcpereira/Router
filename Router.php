@@ -201,14 +201,30 @@ class Router
      */
     public function get($pattern, $function, $rules = array())
     {
-        $route = array($pattern, $function);
-        $this->routes[self::HTTP_GET][] = $route;
+        $this->addHttpRoute(self::HTTP_GET, $pattern, $function, $rules);
+    }
 
-        if (count($rules)) {
-            if (!isset($this->rules[self::HTTP_GET][$pattern])) {
-                $this->rules[self::HTTP_GET][$pattern] = $rules;
-            } else {
-                throw new \Exception("Route already defined: $pattern");
+    /**
+     * Adds a Http route to the route pool
+     *
+     * @param string $method   Http method used by thie route
+     * @param string $pattern  Regex pattern of this route
+     * @param string|closure function to be called
+     * @param array  $rules    Rules for route parameters
+     */
+    protected function addHttpRoute($method, $pattern, $function, $rules = array())
+    {
+        if (in_array($method, $this->httpMethods)) {
+            $constant = constant("self::HTTP_" . $method);
+            $route = array($pattern, $function);
+            $this->routes[$constant][] = $route;
+
+            if (count($rules)) {
+                if (!isset($this->rules[$constant][$pattern])) {
+                    $this->rules[$constant][$pattern] = $rules;
+                } else {
+                    throw new \Exception("Route already defined: $pattern");
+                }
             }
         }
     }
@@ -218,7 +234,7 @@ class Router
      *
      * @return void
      */
-    public function parseRoute()
+    public function execute()
     {
         $matchedRoute = null;
         $method= $this->getRequestMethod();
@@ -302,22 +318,12 @@ class Router
      */
     public function translateRule($rule)
     {
-        switch ($rule) {
-            case "numeric":
-                return static::PATTERN_NUMERIC;
-                break;
-            case "letters":
-                return static::PATTERN_LETTERS;
-                break;
-            case "alfanumeric":
-                return static::PATTERN_ALFANUMERIC;
-                break;
-            case "alfanumeric_full":
-                return static::PATTERN_ALFANUMERIC_FULL;
-                break;
-            default:
-                return static::PATTERN_ALFANUMERIC_UNDERSCORE;
-                break;
+        $var = "self::PATTERN_" . strtoupper($rule);
+        if (!is_null(constant($var))) {
+            return constant($var);
+        } else {
+            // return static::PATTERN_ALFANUMERIC_UNDERSCORE;
+            throw new \Exception("Rule not found: " . $rule);
         }
     }
 
