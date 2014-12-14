@@ -235,16 +235,13 @@ class Router
                     $hasRules = isset($this->rules[$method][$originalPattern][$ids[$index]]);
                     if ($hasRules) {
                         $rule = $this->translateRule($this->rules[$method][$originalPattern][$ids[$index]]);
-                        var_dump($rule);
                     } else {
                         //If there are no rules, set it to an alfanumeric parameter
                         $rule = static::PATTERN_ALFANUMERIC_UNDERSCORE;
-                        var_dump($rule);
                     }
                     $pattern = str_replace($token, "(?<" . $ids[$index] . ">$rule+)", $pattern);
                 }
             }
-            print "pattern: $pattern , " .$this->getPathInfo() . "<bR>";
             if (preg_match("/^$pattern$/", strtolower($this->getPathInfo()), $matches)) {
                 /**
                 * Found the route!
