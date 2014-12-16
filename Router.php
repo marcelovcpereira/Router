@@ -163,11 +163,76 @@ class Router
     }
 
     /**
+     * Returns the filtered POST value for the variable $varname.
+     *
+     * @param  string $varname Name of a POST variable
+     * @return mixed Var value
+     */
+    public static function getPostVar($varname)
+    {
+        $postVar = isset($_POST[$varname]) ? $_POST[$varname] : null;
+        $postVar = filter_input(INPUT_POST, $varname, FILTER_SANITIZE_STRING);
+        return $postVar;
+    }
+
+    /**
+     * Returns the filtered GET value for the variable $varname.
+     *
+     * @param  string $varname Name of a GET variable
+     * @return mixed Var value
+     */
+    public static function getGetVar($varname)
+    {
+        $getVar = isset($_GET[$varname]) ? $_GET[$varname] : null;
+        $getVar = filter_input(INPUT_GET, $varname, FILTER_SANITIZE_STRING);
+        return $getVar;
+    }
+
+    /**
+     * Returns the filtered array of POST variables.
+     *
+     * @return array POST variables, filtered.
+     */
+    public static function getPostVars()
+    {
+        $postVars = array();
+        foreach ($_POST as $varname => $value) {
+            $postVars[$varname] = filter_var($value, FILTER_SANITIZE_STRING);
+        }
+        return $postVars;
+    }
+
+    /**
+     * Returns the filtered array of GET variables.
+     *
+     * @return array GET variables, filtered.
+     */
+    public static function getGetVars()
+    {
+        $getVars = array();
+        foreach ($_GET as $varname => $value) {
+            $getVars[$varname] = filter_var($value, FILTER_SANITIZE_STRING);
+        }
+        return $getVars;
+    }
+
+    /**
+     * Returns the http method in uppercase and escaped
+     *
+     * @return string Http method
+     * @example GET
+     */
+    public static function getHttpMethod()
+    {
+        return StrToUpper(AddSlashes(StripSlashes(strip_tags($_SERVER["REQUEST_METHOD"]))));
+    }
+
+    /**
      * Initializes and empty array of routes
      *
      * @return void
      */
-    public function initRoutes()
+    protected function initRoutes()
     {
         foreach ($this->httpMethods as $method) {
             $this->routes[$method] = array();
@@ -179,7 +244,7 @@ class Router
      *
      * @return void
      */
-    public function initRules()
+    protected function initRules()
     {
         foreach ($this->httpMethods as $method) {
             $this->rules[$method] = array();
@@ -205,6 +270,24 @@ class Router
     }
 
     /**
+     * Adds a HTTP POST route.
+     *
+     * @param  string $pattern  Pattern of this route.
+     * @param  string|closure $function Closure function to be called when the route matches,
+     * a string containing the name of the function to be called or a class@method combination to
+     * execute a controller method.
+     *
+     * @return void
+     * @example $router->post('/users',function(){ return Repository::findAll('User'); });
+     * @example $router->post('/users', 'search_all_users');
+     * @example $router->post('/users','\Controllers\UserController@findAll');
+     */
+    public function post($pattern, $function, $rules = array())
+    {
+        $this->addHttpRoute(self::HTTP_POST, $pattern, $function, $rules);
+    }
+
+    /**
      * Adds a Http route to the route pool
      *
      * @param string $method   Http method used by thie route
@@ -215,13 +298,12 @@ class Router
     protected function addHttpRoute($method, $pattern, $function, $rules = array())
     {
         if (in_array($method, $this->httpMethods)) {
-            $constant = constant("self::HTTP_" . $method);
             $route = array($pattern, $function);
-            $this->routes[$constant][] = $route;
+            $this->routes[$method][] = $route;
 
             if (count($rules)) {
-                if (!isset($this->rules[$constant][$pattern])) {
-                    $this->rules[$constant][$pattern] = $rules;
+                if (!isset($this->rules[$method][$pattern])) {
+                    $this->rules[$method][$pattern] = $rules;
                 } else {
                     throw new \Exception("Route already defined: $pattern");
                 }
@@ -305,7 +387,7 @@ class Router
      *
      * @return void
      */
-    public function finalize()
+    protected function finalize()
     {
         exit();
     }
@@ -316,7 +398,7 @@ class Router
      * @param  string $rule Name of the rule
      * @return string       Regex of the rule
      */
-    public function translateRule($rule)
+    protected function translateRule($rule)
     {
         $var = "self::PATTERN_" . strtoupper($rule);
         if (!is_null(constant($var))) {
@@ -334,7 +416,7 @@ class Router
      * @param  array $params   List of parameter in a random order
      * @return array           Parameters reordered to match function defined names
      */
-    public function fixParamOrder($callable, $params)
+    protected function fixParamOrder($callable, $params)
     {
         $fixedParams = array();
         if (is_array($callable) && count($callable) == 2) {
@@ -354,8 +436,10 @@ class Router
         foreach ($functionParams as $param) {
             if (isset($params[$param->name])) {
                 $fixedParams[] = $params[$param->name];
+            } elseif ($param->isOptional()) {
+                $fixedParams[] = $param->getDefaultValue();
             } else {
-                throw new \Exception("Parameter Definition doesn't match route label. Param:".$param->name . " , Route labels: ".$this->printRouteLabels($params));
+                throw new \Exception("Parameter error. Param:".$param->name . " , Route labels: ".$this->printRouteLabels($params));
             }
         }
         return $fixedParams;
@@ -366,7 +450,7 @@ class Router
      * @param  array $routeArgs Array to be printed
      * @return string Stringification of an array
      */
-    public function printRouteLabels($routeArgs)
+    protected function printRouteLabels($routeArgs)
     {
         $return = "[";
         foreach ($routeArgs as $label => $value) {
