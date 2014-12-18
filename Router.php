@@ -319,43 +319,28 @@ class Router
     public function execute()
     {
         $matchedRoute = null;
-        $method= $this->getRequestMethod();
+        $method = $this->getRequestMethod();
         foreach ($this->routes[$method] as $route) {
             list($pattern,$target) = $route;
-            $originalPattern = $pattern;
-            $pattern = str_replace("/", "\\/", strtolower($pattern));
-            //Obtain matches against any "variable" between curly brackets, besides slash (/) and
-            //curly brackets ({}) to prevent matching folders
-            preg_match_all("/{([^\/\{\}]*)}/", $pattern, $matches);
-            if ($matches) {
-                list($tokens,$ids) = $matches;
-                foreach ($tokens as $index => $token) {
-                    $hasRules = isset($this->rules[$method][$originalPattern][$ids[$index]]);
-                    if ($hasRules) {
-                        $rule = $this->translateRule($this->rules[$method][$originalPattern][$ids[$index]]);
-                    } else {
-                        //If there are no rules, set it to an alfanumeric parameter
-                        $rule = static::PATTERN_ALFANUMERIC_UNDERSCORE;
-                    }
-                    $pattern = str_replace($token, "(?<" . $ids[$index] . ">$rule+)", $pattern);
-                }
-            }
-            if (preg_match("/^$pattern$/", strtolower($this->getPathInfo()), $matches)) {
+            //Inserting variable rules in pattern
+            $pattern = $this->assignPatternVariables($pattern);
+            if (preg_match("/^$pattern$/i", $this->getPathInfo(), $matches)) {
                 /**
                 * Found the route!
                 */
                 $matchedRoute = $route;
                 array_shift($matches);
-                $realVars = array();
+                $params = array();
 
                 foreach ($matches as $key => $value) {
                     if (!is_int($key)) {
-                        $realVars[$key] = $value;
+                        $params[$key] = $value;
                     }
                 }
                 if ((is_string($target) && function_exists($target)) ||
                     is_callable($target)) {
-                    $fixedParams = $this->fixParamOrder($target, $realVars);
+                    //Auto reoder parameters
+                    $fixedParams = $this->fixParamOrder($target, $params);
                     call_user_func_array($target, $fixedParams);
                 } elseif (is_string($target)) {
                     $isMethod = strpos($target, static::METHOD_DELIMITER);
@@ -363,7 +348,7 @@ class Router
                         list($class,$method) = explode(static::METHOD_DELIMITER, $target);
                         if (class_exists($class) && method_exists($class, $method)) {
                             $var = new $class;
-                            $fixedParams = $this->fixParamOrder(array($var, $method), $realVars);
+                            $fixedParams = $this->fixParamOrder(array($var, $method), $params);
                             call_user_func_array(array($var, $method), $fixedParams);
                         } else {
                             throw new \Exception("Undefined class or method: $class@$method");
@@ -379,6 +364,42 @@ class Router
         if (is_null($matchedRoute)) {
             throw new \Exception("Route not found exception.");
         }
+    }
+
+    /**
+     * Injects regex rules (named captures) into variables in pattern
+     *
+     * @param  string $pattern Pattern to be processed
+     * @return string $pattern Pattern processed.
+     */
+    protected function assignPatternVariables($pattern)
+    {
+        //Normalizing and escaping pattern
+        $normalizedPattern = str_replace("/", "\\/", $pattern);
+        $method = $this->getRequestMethod();
+        //Obtain matches against any "variable" between curly brackets, besides slash (/) and
+        //curly brackets ({}) to prevent matching folders
+        preg_match_all("/{([^\/\{\}]*)}/i", $normalizedPattern, $matches);
+        if ($matches) {
+            /**
+             * Found variables in route pattern!
+             */
+            list($tokens,$ids) = $matches;
+            foreach ($tokens as $index => $token) {
+                $hasRules = isset($this->rules[$method][$pattern][$ids[$index]]);
+                if ($hasRules) {
+                    $rule = $this->translateRule($this->rules[$method][$pattern][$ids[$index]]);
+                } else {
+                    //If there are no rules, set it to an alfanumeric parameter
+                    $rule = static::PATTERN_ALFANUMERIC_UNDERSCORE;
+                }
+                /**
+                 * Replace the variables with the assigned regex rules
+                 */
+                $normalizedPattern = str_replace($token, "(?<" . $ids[$index] . ">$rule+)", $normalizedPattern);
+            }
+        }
+        return $normalizedPattern;
     }
 
     /**
