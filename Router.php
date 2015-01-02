@@ -427,7 +427,7 @@ class Router
                     $rule = $this->translateRule($this->rules[$method][$pattern][$ids[$index]]);
                 } else {
                     //If there are no rules, set it to an alfanumeric parameter
-                    $rule = static::PATTERN_ALFANUMERIC_UNDERSCORE;
+                    $rule = static::PATTERN_ALPHANUMERIC_UNDERSCORE;
                 }
                 /**
                  * Replace the variables with the assigned regex rules
