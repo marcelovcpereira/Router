@@ -288,7 +288,7 @@ class Router
     }
 
     /**
-     * Adds a HTTP POST route.
+     * Adds a HTTP PUT route.
      *
      * @param  string $pattern  Pattern of this route.
      * @param  string|closure $function Closure function to be called when the route matches,
@@ -296,13 +296,31 @@ class Router
      * execute a controller method.
      *
      * @return void
-     * @example $router->post('/users',function(){ return Repository::findAll('User'); });
-     * @example $router->post('/users', 'search_all_users');
-     * @example $router->post('/users','\Controllers\UserController@findAll');
+     * @example $router->put('/users',function(){ return Repository::findAll('User'); });
+     * @example $router->put('/users', 'search_all_users');
+     * @example $router->put('/users','\Controllers\UserController@findAll');
      */
     public function put($pattern, $function, $rules = array())
     {
         $this->addHttpRoute(self::HTTP_PUT, $pattern, $function, $rules);
+    }
+
+    /**
+     * Adds a HTTP DELETE route.
+     *
+     * @param  string $pattern  Pattern of this route.
+     * @param  string|closure $function Closure function to be called when the route matches,
+     * a string containing the name of the function to be called or a class@method combination to
+     * execute a controller method.
+     *
+     * @return void
+     * @example $router->delete('/users',function(){ return Repository::findAll('User'); });
+     * @example $router->delete('/users', 'search_all_users');
+     * @example $router->delete('/users','\Controllers\UserController@findAll');
+     */
+    public function delete($pattern, $function, $rules = array())
+    {
+        $this->addHttpRoute(self::HTTP_DELETE, $pattern, $function, $rules);
     }
 
     /**
