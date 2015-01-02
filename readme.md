@@ -56,5 +56,12 @@ class Controller
 $tmp->get('/controller/news/{id}', '\Controller\Controller@findNewsById', array("id"=>"numeric"));
 $tmp->get('/controller/news/{name}', '\Controller\Controller@findNewsByName', array("id"=>"letters"));
 ```
+<h4>Current Available Rules:</h4>
+*alphanumeric - [0-9a-zA-Z]
+*alphanumeric_underscore - [0-9a-zA-Z_]
+*alphanumeric_full - [0-9a-zA-Z_\-\+]
+*numeric - [0-9]
+*letters - [a-zA-Z]
+
 
 

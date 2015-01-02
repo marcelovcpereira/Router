@@ -114,9 +114,9 @@ class Router
     /**
      * Regex rules constants
      */
-    const PATTERN_ALFANUMERIC = "[0-9a-zA-Z]";
-    const PATTERN_ALFANUMERIC_UNDERSCORE = "[0-9a-zA-Z_]";
-    const PATTERN_ALFANUMERIC_FULL = "[0-9a-zA-Z_\-\+]";
+    const PATTERN_ALPHANUMERIC = "[0-9a-zA-Z]";
+    const PATTERN_ALPHANUMERIC_UNDERSCORE = "[0-9a-zA-Z_]";
+    const PATTERN_ALPHANUMERIC_FULL = "[0-9a-zA-Z_\-\+]";
     const PATTERN_NUMERIC = "[0-9]";
     const PATTERN_LETTERS = "[a-zA-Z]";
 
