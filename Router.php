@@ -288,6 +288,24 @@ class Router
     }
 
     /**
+     * Adds a HTTP POST route.
+     *
+     * @param  string $pattern  Pattern of this route.
+     * @param  string|closure $function Closure function to be called when the route matches,
+     * a string containing the name of the function to be called or a class@method combination to
+     * execute a controller method.
+     *
+     * @return void
+     * @example $router->post('/users',function(){ return Repository::findAll('User'); });
+     * @example $router->post('/users', 'search_all_users');
+     * @example $router->post('/users','\Controllers\UserController@findAll');
+     */
+    public function put($pattern, $function, $rules = array())
+    {
+        $this->addHttpRoute(self::HTTP_PUT, $pattern, $function, $rules);
+    }
+
+    /**
      * Adds a Http route to the route pool
      *
      * @param string $method   Http method used by thie route
